@@ -8,7 +8,7 @@
 // Configuration
 constexpr size_t InputSize = 784;   // 28x28 MNIST
 #if USE_CUDA
-constexpr size_t HiddenSize = 90'000'000'000;  // 90 Billion neurons
+constexpr size_t HiddenSize = 10'000; 
 #else
 constexpr size_t HiddenSize = 10'000;          // 10,000 neurons
 #endif
