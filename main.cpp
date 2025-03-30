@@ -53,7 +53,9 @@ void train(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vect
         }
 
         float accuracy = (float)correctCount / trainData.size();
-        std::cout << "Epoch " << epoch + 1 << " | Loss: " << totalLoss / trainData.size() << " | Accuracy: " << accuracy * 100.0f << "%\n";
+        std::cout << "Epoch " << epoch + 1 << " / " << Epochs 
+                  << " completed | Loss: " << totalLoss / trainData.size() 
+                  << " | Accuracy: " << accuracy * 100.0f << "%\n";
     }
 }
 
@@ -77,6 +79,7 @@ int main() {
     std::vector<DataPoint> testData = loadCSV("mnist_test.csv");
 
     std::cout << "Initializing Neural Network...\n";
+    std::cout << "Project Erika has started" << "\n";
     NeuralNetwork<InputSize, HiddenSize, OutputSize> nn;
 
     train(nn, trainData);
