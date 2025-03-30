@@ -73,13 +73,25 @@ void test(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vecto
     std::cout << "Test Accuracy: " << accuracy * 100.0f << "%\n";
 }
 
+void clearScreen() {
+    #ifdef _WIN32
+        system("cls");
+    #else
+        system("clear");
+    #endif
+}
+
 int main() {
+    clearScreen();
+    
+    std::cout << "Project Erika has started" << "\n";
+    std::cout << "\n";
+
     std::cout << "Loading Data...\n";
     std::vector<DataPoint> trainData = loadCSV("mnist_train.csv");
     std::vector<DataPoint> testData = loadCSV("mnist_test.csv");
 
     std::cout << "Initializing Neural Network...\n";
-    std::cout << "Project Erika has started" << "\n";
     NeuralNetwork<InputSize, HiddenSize, OutputSize> nn;
 
     train(nn, trainData);
