@@ -1,0 +1,10 @@
+Include
+Lib
+Scripts
+pyvenv.cfg
+__pycache__
+
+.vscode
+
+*.csv
+*.exe
