@@ -1,9 +1,11 @@
 #include "loader.hpp"
 #include "neurons.hpp"
+#include "model.hpp"
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <chrono>
 
 // Configuration
 constexpr size_t InputSize = 784;   // 28x28 MNIST
@@ -28,7 +30,11 @@ int getPrediction(const std::vector<float>& output) {
 void train(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vector<DataPoint>& trainData) {
     std::cout << "Training Started...\n";
 
+    auto trainingStart = std::chrono::high_resolution_clock::now();
+
     for (int epoch = 0; epoch < Epochs; epoch++) {
+        auto epochStart = std::chrono::high_resolution_clock::now();
+
         float totalLoss = 0.0;
         int correctCount = 0;
 
@@ -43,7 +49,6 @@ void train(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vect
 
             nn.backward(target, LearningRate);
 
-            // Simple Loss Calculation (Cross-Entropy)
             float loss = 0.0;
             const std::vector<float>& outputLayer = nn.getOutputLayer();
             for (size_t j = 0; j < OutputSize; j++) {
@@ -52,11 +57,20 @@ void train(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vect
             totalLoss += loss;
         }
 
+        auto epochEnd = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> epochDuration = epochEnd - epochStart;
+
         float accuracy = (float)correctCount / trainData.size();
         std::cout << "Epoch " << epoch + 1 << " / " << Epochs 
                   << " completed | Loss: " << totalLoss / trainData.size() 
-                  << " | Accuracy: " << accuracy * 100.0f << "%\n";
+                  << " | Accuracy: " << accuracy * 100.0f << "%"
+                  << " | Time: " << epochDuration.count() << "s\n";
     }
+
+    auto trainingEnd = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> trainingDuration = trainingEnd - trainingStart;
+
+    std::cout << "Total Training Time: " << trainingDuration.count() << "s\n";
 }
 
 void test(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vector<DataPoint>& testData) {
@@ -83,13 +97,9 @@ void clearScreen() {
 
 int main() {
     clearScreen();
-    
-    // std::cout << u8"░█▀█░█▀▄░█▀█░▀▀█░█▀▀░█▀▀░▀█▀░░░░░█▀▀░█▀▄░▀█▀░█░█░█▀█" << "\n";
-    // std::cout << u8"░█▀▀░█▀▄░█░█░░░█░█▀▀░█░░░░█░░▄▄▄░█▀▀░█▀▄░░█░░█▀▄░█▀█" << "\n";
-    // std::cout << u8"░▀░░░▀░▀░▀▀▀░▀▀░░▀▀▀░▀▀▀░░▀░░░░░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀░▀" << "\n\n";
+    std::cout << "Project Erika has started\n\n";
 
-    std::cout << "Project Erika has started" << "\n\n";
-
+    // Load Data
     std::cout << "Loading Data...\n";
     std::vector<DataPoint> trainData = loadCSV("mnist_train.csv");
     std::vector<DataPoint> testData = loadCSV("mnist_test.csv");
@@ -97,8 +107,41 @@ int main() {
     std::cout << "Initializing Neural Network...\n";
     NeuralNetwork<InputSize, HiddenSize, OutputSize> nn;
 
+    // Ask to load model
+    char loadChoice;
+    std::cout << "Do you want to load a pre-trained model? (y/n): ";
+    std::cin >> loadChoice;
+
+    if (loadChoice == 'y' || loadChoice == 'Y') {
+        std::string filename;
+        std::cout << "Enter model filename (e.g., model.erk): ";
+        std::cin >> filename;
+        if (!ModelManager<InputSize, HiddenSize, OutputSize>::loadModel(nn, filename)) {
+            std::cerr << "Failed to load model. Starting with a fresh model.\n";
+        }
+    } else {
+        std::cout << "Starting with a new model.\n";
+    }
+
+    // Train and Test
     train(nn, trainData);
     test(nn, testData);
+
+    // Ask to save the model
+    char saveChoice;
+    std::cout << "Do you want to save the trained model? (y/n): ";
+    std::cin >> saveChoice;
+
+    if (saveChoice == 'y' || saveChoice == 'Y') {
+        std::string filename;
+        std::cout << "Enter filename to save the model (e.g., model.erk): ";
+        std::cin >> filename;
+        if (!ModelManager<InputSize, HiddenSize, OutputSize>::saveModel(nn, filename)) {
+            std::cerr << "Failed to save model.\n";
+        } else {
+            std::cout << "Model saved successfully!\n";
+        }
+    }
 
     return 0;
 }

@@ -28,6 +28,17 @@ public:
         return outputLayer;
     }
 
+    const std::vector<float>& getWeights1() const { return weights1; }
+    const std::vector<float>& getWeights2() const { return weights2; }
+    const std::vector<float>& getBias1() const { return bias1; }
+    const std::vector<float>& getBias2() const { return bias2; }
+
+    void setWeights1(const std::vector<float>& w) { weights1 = w; }
+    void setWeights2(const std::vector<float>& w) { weights2 = w; }
+    void setBias1(const std::vector<float>& b) { bias1 = b; }
+    void setBias2(const std::vector<float>& b) { bias2 = b; }
+
+
 private:
     std::vector<float> inputLayer;
     std::vector<float> hiddenLayer;
