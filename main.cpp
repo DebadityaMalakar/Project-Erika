@@ -6,6 +6,7 @@
 #include <cmath>
 #include <algorithm>
 #include <chrono>
+#include <limits>
 
 // Configuration
 constexpr size_t InputSize = 784;   // 28x28 MNIST
@@ -18,6 +19,8 @@ constexpr size_t OutputSize = 10;   // Digits 0-9
 constexpr float LearningRate = 0.001;
 constexpr int Epochs = 10;
 
+void test(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vector<DataPoint>& testData);
+
 void oneHotEncode(int label, std::vector<float>& target) {
     target.assign(OutputSize, 0.0f);
     target[label] = 1.0f;
@@ -27,7 +30,9 @@ int getPrediction(const std::vector<float>& output) {
     return std::distance(output.begin(), std::max_element(output.begin(), output.end()));
 }
 
-void train(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vector<DataPoint>& trainData) {
+void train(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, 
+           const std::vector<DataPoint>& trainData,
+           const std::vector<DataPoint>& testData) {
     std::cout << "Training Started...\n";
 
     auto trainingStart = std::chrono::high_resolution_clock::now();
@@ -71,6 +76,9 @@ void train(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vect
     std::chrono::duration<double> trainingDuration = trainingEnd - trainingStart;
 
     std::cout << "Total Training Time: " << trainingDuration.count() << "s\n";
+
+    // Test after training
+    test(nn, testData);
 }
 
 void test(NeuralNetwork<InputSize, HiddenSize, OutputSize>& nn, const std::vector<DataPoint>& testData) {
@@ -95,51 +103,116 @@ void clearScreen() {
     #endif
 }
 
-int main() {
+void displayMenu() {
     clearScreen();
-    std::cout << "Project Erika has started\n\n";
+    std::cout << "Project Erika - Main Menu\n\n";
+    std::cout << "1. Load and test a model\n";
+    std::cout << "2. Train a new model\n";
+    std::cout << "3. Exit\n";
+    std::cout << "\nEnter your choice (1-3): ";
+}
 
-    // Load Data
-    std::cout << "Loading Data...\n";
-    std::vector<DataPoint> trainData = loadCSV("mnist_train.csv");
-    std::vector<DataPoint> testData = loadCSV("mnist_test.csv");
-
-    std::cout << "Initializing Neural Network...\n";
+void loadAndTestModel() {
+    clearScreen();
+    std::cout << "Load and Test Model\n\n";
+    
     NeuralNetwork<InputSize, HiddenSize, OutputSize> nn;
-
-    // Ask to load model
-    char loadChoice;
-    std::cout << "Do you want to load a pre-trained model? (y/n): ";
-    std::cin >> loadChoice;
-
-    if (loadChoice == 'y' || loadChoice == 'Y') {
-        std::string filename;
-        std::cout << "Enter model filename (e.g., model.erk): ";
-        std::cin >> filename;
-        if (!ModelManager<InputSize, HiddenSize, OutputSize>::loadModel(nn, filename)) {
-            std::cerr << "Failed to load model. Starting with a fresh model.\n";
-        }
-    } else {
-        std::cout << "Starting with a new model.\n";
+    
+    std::string modelFilename;
+    std::cout << "Enter model filename to load (e.g., model.erk): ";
+    std::cin >> modelFilename;
+    
+    if (!ModelManager<InputSize, HiddenSize, OutputSize>::loadModel(nn, modelFilename)) {
+        std::cerr << "Failed to load model. Press Enter to return to menu...";
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cin.get();
+        return;
     }
-
-    // Train and Test
-    train(nn, trainData);
+    
+    std::string testFilename;
+    std::cout << "Enter test CSV filename (e.g., mnist_test.csv): ";
+    std::cin >> testFilename;
+    
+    std::vector<DataPoint> testData = loadCSV(testFilename);
+    if (testData.empty()) {
+        std::cerr << "Failed to load test data or file is empty. Press Enter to return to menu...";
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cin.get();
+        return;
+    }
+    
     test(nn, testData);
+    
+    std::cout << "\nPress Enter to return to menu...";
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.get();
+}
 
-    // Ask to save the model
+void trainNewModel() {
+    clearScreen();
+    std::cout << "Train New Model\n\n";
+    
+    std::string trainFilename, testFilename;
+    std::cout << "Enter training CSV filename (e.g., mnist_train.csv): ";
+    std::cin >> trainFilename;
+    std::cout << "Enter test CSV filename (e.g., mnist_test.csv): ";
+    std::cin >> testFilename;
+    
+    std::vector<DataPoint> trainData = loadCSV(trainFilename);
+    std::vector<DataPoint> testData = loadCSV(testFilename);
+    
+    if (trainData.empty() || testData.empty()) {
+        std::cerr << "Failed to load data or files are empty. Press Enter to return to menu...";
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cin.get();
+        return;
+    }
+    
+    NeuralNetwork<InputSize, HiddenSize, OutputSize> nn;
+    train(nn, trainData, testData);
+    
     char saveChoice;
-    std::cout << "Do you want to save the trained model? (y/n): ";
+    std::cout << "\nDo you want to save the trained model? (y/n): ";
     std::cin >> saveChoice;
-
+    
     if (saveChoice == 'y' || saveChoice == 'Y') {
-        std::string filename;
+        std::string modelFilename;
         std::cout << "Enter filename to save the model (e.g., model.erk): ";
-        std::cin >> filename;
-        if (!ModelManager<InputSize, HiddenSize, OutputSize>::saveModel(nn, filename)) {
+        std::cin >> modelFilename;
+        if (!ModelManager<InputSize, HiddenSize, OutputSize>::saveModel(nn, modelFilename)) {
             std::cerr << "Failed to save model.\n";
         } else {
             std::cout << "Model saved successfully!\n";
+        }
+    }
+    
+    std::cout << "\nPress Enter to return to menu...";
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.get();
+}
+
+int main() {
+    while (true) {
+        displayMenu();
+        
+        int choice;
+        std::cin >> choice;
+        
+        switch (choice) {
+            case 1:
+                loadAndTestModel();
+                break;
+            case 2:
+                trainNewModel();
+                break;
+            case 3:
+                std::cout << "Exiting Project Erika. Goodbye!\n";
+                return 0;
+            default:
+                std::cout << "Invalid choice. Please try again.\n";
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                std::cin.get();
+                break;
         }
     }
 
