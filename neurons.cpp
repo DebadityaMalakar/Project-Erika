@@ -1,16 +1,6 @@
 #include "neurons.hpp"
-#include <random>
 #include <cassert>
-
-// Conditional neuron configuration
-#if USE_CUDA
-constexpr size_t HiddenSize = 90'000'000'000; // 90 Billion neurons with CUDA
-#else
-constexpr size_t HiddenSize = 10'000;         // 10,000 neurons without CUDA
-#endif
-
-constexpr size_t InputSize = 784;   // 28x28 MNIST
-constexpr size_t OutputSize = 10;   // Digits 0-9
+#include <omp.h>
 
 // Constructor
 template <size_t InputSize, size_t HiddenSize, size_t OutputSize>
@@ -27,7 +17,6 @@ NeuralNetwork<InputSize, HiddenSize, OutputSize>::NeuralNetwork() {
     initializeWeights();
 
 #if USE_CUDA
-    // Allocate GPU memory for CUDA
     cudaMalloc(&d_input, InputSize * sizeof(float));
     cudaMalloc(&d_hidden, HiddenSize * sizeof(float));
     cudaMalloc(&d_output, OutputSize * sizeof(float));
@@ -64,29 +53,14 @@ void NeuralNetwork<InputSize, HiddenSize, OutputSize>::initializeWeights() {
     std::uniform_real_distribution<float> dist1(-limit1, limit1);
     std::uniform_real_distribution<float> dist2(-limit2, limit2);
 
-    for (auto& w : weights1) w = dist1(gen);
-    for (auto& w : weights2) w = dist2(gen);
-}
-
-// ReLU Activation
-template <size_t InputSize, size_t HiddenSize, size_t OutputSize>
-void NeuralNetwork<InputSize, HiddenSize, OutputSize>::reluActivation(std::vector<float>& data) {
-    for (float& x : data) {
-        x = std::max(0.0f, x);
+    #pragma omp parallel for
+    for (size_t i = 0; i < InputSize * HiddenSize; i++) {
+        weights1[i] = dist1(gen);
     }
-}
 
-// Softmax Activation
-template <size_t InputSize, size_t HiddenSize, size_t OutputSize>
-void NeuralNetwork<InputSize, HiddenSize, OutputSize>::softmaxActivation(std::vector<float>& data) {
-    float maxVal = *std::max_element(data.begin(), data.end());
-    float sum = 0.0f;
-    for (float& x : data) {
-        x = std::exp(x - maxVal);
-        sum += x;
-    }
-    for (float& x : data) {
-        x /= sum;
+    #pragma omp parallel for
+    for (size_t i = 0; i < HiddenSize * OutputSize; i++) {
+        weights2[i] = dist2(gen);
     }
 }
 
@@ -95,7 +69,8 @@ template <size_t InputSize, size_t HiddenSize, size_t OutputSize>
 void NeuralNetwork<InputSize, HiddenSize, OutputSize>::forward(const std::vector<float>& input) {
     assert(input.size() == InputSize);
 
-    // Input to Hidden Layer
+    // Compute hidden layer
+    #pragma omp parallel for
     for (size_t i = 0; i < HiddenSize; i++) {
         float sum = bias1[i];
         for (size_t j = 0; j < InputSize; j++) {
@@ -105,7 +80,8 @@ void NeuralNetwork<InputSize, HiddenSize, OutputSize>::forward(const std::vector
     }
     reluActivation(hiddenLayer);
 
-    // Hidden to Output Layer
+    // Compute output layer
+    #pragma omp parallel for
     for (size_t i = 0; i < OutputSize; i++) {
         float sum = bias2[i];
         for (size_t j = 0; j < HiddenSize; j++) {
@@ -116,39 +92,30 @@ void NeuralNetwork<InputSize, HiddenSize, OutputSize>::forward(const std::vector
     softmaxActivation(outputLayer);
 }
 
-// Print Output
+// Backpropagation
 template <size_t InputSize, size_t HiddenSize, size_t OutputSize>
-void NeuralNetwork<InputSize, HiddenSize, OutputSize>::printOutput() const {
-    std::cout << "Output: ";
-    for (float val : outputLayer) {
-        std::cout << val << " ";
-    }
-    std::cout << std::endl;
-}
-
-// Explicit template instantiation
-template class NeuralNetwork<InputSize, HiddenSize, OutputSize>;
-
-template<>
 void NeuralNetwork<InputSize, HiddenSize, OutputSize>::backward(const std::vector<float>& target, float learningRate) {
     std::vector<float> outputError(OutputSize);
     std::vector<float> hiddenError(HiddenSize);
 
-    // Calculate Output Error (dL/dOutput)
+    // Calculate output error
+    #pragma omp parallel for
     for (size_t i = 0; i < OutputSize; i++) {
         outputError[i] = outputLayer[i] - target[i];
     }
 
-    // Calculate Hidden Error using Backpropagation
+    // Calculate hidden layer error
+    #pragma omp parallel for
     for (size_t i = 0; i < HiddenSize; i++) {
         float sum = 0.0f;
         for (size_t j = 0; j < OutputSize; j++) {
             sum += outputError[j] * weights2[i * OutputSize + j];
         }
-        hiddenError[i] = (hiddenLayer[i] > 0 ? 1.0f : 0.0f) * sum; // ReLU Derivative
+        hiddenError[i] = (hiddenLayer[i] > 0 ? 1.0f : 0.0f) * sum;
     }
 
-    // Update Weights2 and Bias2 (Output Layer)
+    // Update weights2 and biases2
+    #pragma omp parallel for
     for (size_t i = 0; i < OutputSize; i++) {
         for (size_t j = 0; j < HiddenSize; j++) {
             weights2[j * OutputSize + i] -= learningRate * outputError[i] * hiddenLayer[j];
@@ -156,7 +123,8 @@ void NeuralNetwork<InputSize, HiddenSize, OutputSize>::backward(const std::vecto
         bias2[i] -= learningRate * outputError[i];
     }
 
-    // Update Weights1 and Bias1 (Hidden Layer)
+    // Update weights1 and biases1
+    #pragma omp parallel for
     for (size_t i = 0; i < HiddenSize; i++) {
         for (size_t j = 0; j < InputSize; j++) {
             weights1[j * HiddenSize + i] -= learningRate * hiddenError[i] * inputLayer[j];
@@ -164,3 +132,14 @@ void NeuralNetwork<InputSize, HiddenSize, OutputSize>::backward(const std::vecto
         bias1[i] -= learningRate * hiddenError[i];
     }
 }
+
+// Print Output
+template <size_t InputSize, size_t HiddenSize, size_t OutputSize>
+void NeuralNetwork<InputSize, HiddenSize, OutputSize>::printOutput() const {
+    std::cout << "Output: ";
+    for (float val : outputLayer) std::cout << val << " ";
+    std::cout << std::endl;
+}
+
+// Explicit Instantiation
+template class NeuralNetwork<784, 1024, 10>;

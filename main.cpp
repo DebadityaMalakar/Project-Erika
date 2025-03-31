@@ -10,7 +10,7 @@ constexpr size_t InputSize = 784;   // 28x28 MNIST
 #if USE_CUDA
 constexpr size_t HiddenSize = 10'000; 
 #else
-constexpr size_t HiddenSize = 10'000;          // 10,000 neurons
+constexpr size_t HiddenSize = 1024;
 #endif
 constexpr size_t OutputSize = 10;   // Digits 0-9
 constexpr float LearningRate = 0.001;
@@ -84,8 +84,11 @@ void clearScreen() {
 int main() {
     clearScreen();
     
-    std::cout << "Project Erika has started" << "\n";
-    std::cout << "\n";
+    // std::cout << u8"░█▀█░█▀▄░█▀█░▀▀█░█▀▀░█▀▀░▀█▀░░░░░█▀▀░█▀▄░▀█▀░█░█░█▀█" << "\n";
+    // std::cout << u8"░█▀▀░█▀▄░█░█░░░█░█▀▀░█░░░░█░░▄▄▄░█▀▀░█▀▄░░█░░█▀▄░█▀█" << "\n";
+    // std::cout << u8"░▀░░░▀░▀░▀▀▀░▀▀░░▀▀▀░▀▀▀░░▀░░░░░░▀▀▀░▀░▀░▀▀▀░▀░▀░▀░▀" << "\n\n";
+
+    std::cout << "Project Erika has started" << "\n\n";
 
     std::cout << "Loading Data...\n";
     std::vector<DataPoint> trainData = loadCSV("mnist_train.csv");
